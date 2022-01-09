@@ -317,7 +317,7 @@ class Twint:
             raise
 
 
-def run(config, callback=None):
+async def run(config, callback=None):
     logme.debug(__name__ + ':run')
     try:
         get_event_loop()
@@ -406,13 +406,13 @@ def Profile(config):
         storage.panda._autoget("tweet")
 
 
-def Search(config, callback=None):
+async def Search(config, callback=None):
     logme.debug(__name__ + ':Search')
     config.TwitterSearch = True
     config.Favorites = False
     config.Following = False
     config.Followers = False
     config.Profile = False
-    run(config, callback)
+    await run(config, callback)
     if config.Pandas_au:
         storage.panda._autoget("tweet")
