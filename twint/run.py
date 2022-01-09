@@ -9,7 +9,7 @@ from .feed import NoMoreTweetsException
 
 import logging as logme
 
-import time
+import asyncio
 
 bearer = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs' \
          '%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
@@ -56,6 +56,7 @@ class Twint:
     async def Feed(self):
         logme.debug(__name__ + ':Twint:Feed')
         consecutive_errors_count = 0
+        empty_feed_count = 0
         while True:
             # this will receive a JSON string, parse it into a `dict` and do the required stuff
             try:
@@ -80,23 +81,28 @@ class Twint:
                                                             headers=[("User-Agent", self.user_agent)])
                             self.feed, self.init = feed.MobileFav(response)
                             favorite_err_cnt += 1
-                            time.sleep(1)
+                            asyncio.sleep(1)
                         if favorite_err_cnt == 5:
                             print("Favorite page could not be fetched")
                     if not self.count % 40:
-                        time.sleep(5)
+                        asyncio.sleep(5)
                 elif self.config.Followers or self.config.Following:
                     self.feed, self.init = feed.Follow(response)
                     if not self.count % 40:
-                        time.sleep(5)
+                        asyncio.sleep(5)
                 elif self.config.Profile or self.config.TwitterSearch:
                     try:
                         self.feed, self.init = feed.parse_tweets(self.config, response)
                     except NoMoreTweetsException as e:
                         logme.debug(__name__ + ':Twint:Feed:' + str(e))
-                        print('[!] ' + str(e) + ' Scraping will stop now.')
-                        print('found {} deleted tweets in this search.'.format(len(self.config.deleted)))
-                        break
+                        empty_feed_count += 1
+                        if(empty_feed_count >= self.config.Max_empty_return):
+                            print('[!] ' + str(e) + ' Scraping will stop now.')
+                            print('found {} deleted tweets in this search.'.format(len(self.config.deleted)))
+                            break
+                        else:
+                            asyncio.sleep(self.config.Min_wait_time)
+                            continue
                 break
             except TimeoutError as e:
                 if self.config.Proxy_host.lower() == "tor":
@@ -133,7 +139,7 @@ class Twint:
                         delay = self.config.Min_wait_time
 
                     sys.stderr.write('sleeping for {} secs\n'.format(delay))
-                    time.sleep(delay)
+                    asyncio.sleep(delay)
                     self.user_agent = await get.RandomUserAgent(wa=True)
                     continue
                 logme.critical(__name__ + ':Twint:Feed:Tweets_known_error:' + str(e))
